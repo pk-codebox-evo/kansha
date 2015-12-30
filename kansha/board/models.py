@@ -214,6 +214,22 @@ class DataBoard(Entity):
 
         return q1, q2
 
+    @classmethod
+    def get_my_templates_for(cls, user_username, user_source):
+        q = cls.query.join(DataBoardManager)
+        q = q.filter(cls.is_template == True)
+        q = q.filter(DataBoardManager.user_username == user_username)
+        q = q.filter(DataBoardManager.user_source == user_source)
+        q = q.order_by(cls.title)
+        return q
+
+    @classmethod
+    def get_all_templates(cls):
+        q = cls.query
+        q = q.filter(cls.is_template == True)
+        q = q.order_by(cls.title)
+        return q
+
     def create_column(self, index, title, nb_cards=None, archive=False):
         return DataColumn.create_column(self, index, title, nb_cards, archive)
 

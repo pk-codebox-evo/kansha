@@ -180,6 +180,18 @@ def render_Board_item(self, h, comp, *args):
     return h.root
 
 
+@presentation.render_for(Board, 'template_item')
+def render_Board_template_item(self, h, comp, *args):
+    with h.li:
+        h << h.SyncRenderer().a(self.data.title, href=self.data.url, class_="boardItemLabel", title=self.data.description)
+
+        with h.div(class_='actions'):
+            if security.has_permissions('manage', self):
+                onclick = 'return confirm("%s")' % _("Are you sure you want to delete this template?")
+                h << h.SyncRenderer().a(h.i(class_='ico-btn icon-trashcan'), class_='delete', title=_(u'Delete this template'), onclick=onclick).action(comp.answer, ('delete', self))
+    return h.root
+
+
 @presentation.render_for(Board, model="archived_item")
 def render_Board_archived_item(self, h, comp, *args):
     with h.li:

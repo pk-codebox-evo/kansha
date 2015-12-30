@@ -935,6 +935,14 @@ class Board(events.EventHandlerMixIn):
     def get_templates_for(user_username, user_source):
         return DataBoard.get_templates_for(user_username, user_source, BOARD_PUBLIC)
 
+    @staticmethod
+    def get_all_templates():
+        return DataBoard.get_all_templates()
+
+    @staticmethod
+    def get_my_templates_for(user_username, user_source):
+        return DataBoard.get_my_templates_for(user_username, user_source)
+
     def set_reload_search(self):
         self.must_reload_search = True
 

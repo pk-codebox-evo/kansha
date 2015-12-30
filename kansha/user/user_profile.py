@@ -9,18 +9,18 @@
 #--
 
 from collections import OrderedDict
-import imghdr
 import peak.rules
+import imghdr
 
 from nagare import ajax, component, editor, presentation, security, var
 from nagare.i18n import _, _L
 
-from kansha import validator
+from kansha.authentication.database import validators, forms as registation_forms
+from kansha.board.templatesmanager import TemplatesManager
 from kansha.board import comp as board
 from kansha.menu import MenuEntry
-from kansha.authentication.database import validators, forms as registation_forms
+from kansha import validator
 
-# from .user_cards import UserCards
 from .usermanager import UserManager
 
 
@@ -55,6 +55,21 @@ class UserProfile(object):
         #     'profile',
         #     services_service(UserCards, user, search_engine, theme)
         # )
+        if security.has_permissions('admin') or security.has_permissions('create_board'):
+            self.menu['templates'] = MenuEntry(
+                _L(u'Templates'),
+                'bookmark',
+                services_service(
+                    TemplatesManager,
+                    app_title,
+                    app_banner,
+                    theme,
+                    card_extensions,
+                    user,
+                    search_engine
+                )
+            )
+
         self.menu['profile'] = MenuEntry(
             _L(u'Profile'),
             'user',
