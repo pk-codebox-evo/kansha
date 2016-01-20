@@ -89,16 +89,16 @@ class DataUser(Entity):
     registration_date = Field(DateTime, nullable=False)
     last_login = Field(DateTime, nullable=True)
     display_week_numbers = Field(Boolean, default=False)
-    board_members = OneToMany('DataBoardMember')
-    boards = AssociationProxy(
-        'board_members', 'board',
-        creator=lambda board: DataBoardMember(board=board))
-    board_managers = OneToMany('DataBoardManager')
-    managed_boards = AssociationProxy(
-        'board_managers', 'board',
-        creator=lambda board: DataBoardManager(board=board))
+    #board_members = OneToMany('DataBoardMember')
+    #boards = AssociationProxy(
+    #    'board_members', 'board',
+    #    creator=lambda board: DataBoardMember(board=board))
+    #board_managers = OneToMany('DataBoardManager')
+    #managed_boards = AssociationProxy(
+    #    'board_managers', 'board',
+    #    creator=lambda board: DataBoardManager(board=board))
     last_board = OneToOne('DataBoard', inverse='last_users')
-    cards = ManyToMany('DataCard', inverse='members', lazy='dynamic')
+    #cards = ManyToMany('DataCard', inverse='members', lazy='dynamic')
     history = OneToMany('DataHistory')
 
     def __init__(self, username, password, fullname, email,
@@ -154,19 +154,6 @@ class DataUser(Entity):
 
         self.email = self.email_to_confirm
         self.email_to_confirm = None
-
-    def add_board(self, board, role="member"):
-        """Add board to user's board lists
-
-        In:
-         - ``board`` -- DataBoard instance to add
-         - ``role`` -- user is member or manager
-        """
-        boards = set(dbm.board for dbm in self.board_members)
-        if board not in boards:
-            self.board_members.append(DataBoardMember(board=board))
-        if role == "manager" and board not in self.managed_boards:
-            self.managed_boards.append(board)
 
     def get_picture(self):
         return self.picture

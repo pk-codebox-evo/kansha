@@ -232,7 +232,7 @@ class BoardTest(unittest.TestCase):
 
         def find_board_member():
             for member in board.all_members:
-                if member().get_user_data().username == user.username:
+                if member().data.username == user.username:
                     return member()
 
         member = find_board_member()

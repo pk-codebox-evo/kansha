@@ -65,9 +65,7 @@ class DataAsset(Entity):
 
     @classmethod
     def has_cover(cls, card):
-        q = cls.query
-        q = q.filter_by(cover=card)
-        return q.count() == 1
+        return cls.exists(cover=card)
 
     @classmethod
     def get_cover(cls, card):

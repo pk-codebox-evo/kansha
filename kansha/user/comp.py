@@ -37,12 +37,13 @@ class User(security_common.User):
             self._data = DataUser.get_by_username(self.username)
         return self._data
 
+    @property
+    def fullname(self):
+        return self.data.fullname
+
     def __getstate__(self):
         self._data = None
         return self.__dict__
-
-    def get_user_data(self):
-        return self.data
 
     @property
     def email(self):
@@ -133,25 +134,6 @@ class User(security_common.User):
          - list of Users (User Instances)
         """
         return self.data.best_friends(exclude_list, size)
-
-    def add_board(self, board, role="member"):
-        """Add board to user's board lists
-
-        In:
-         - ``board`` -- DataBoard instance to add
-         - ``role`` -- user is member or manager
-        """
-        self.data.add_board(board.data, role)
-
-    def is_manager(self, board):
-        """Return True if user is manager of the board
-
-        In:
-         - ``board`` -- DataBoard instance
-        Return:
-         - True if user is manager of the board
-        """
-        return board in self.data.managed_boards
 
     @property
     def last_login(self):

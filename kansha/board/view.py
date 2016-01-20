@@ -601,7 +601,7 @@ def render_BoardMember(self, h, comp, *args):
     if security.has_permissions('manage', self.board):
         return self.user.on_answer(
             lambda action: self.dispatch(action, application_url)
-        ).render(h, model='%s' % self.role)
+        ).render(h, model=self.role)
     else:
         return h.div(self.user.render(h), class_='member')
 

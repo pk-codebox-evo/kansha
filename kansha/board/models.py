@@ -17,10 +17,10 @@ from elixir import Field, Unicode, Integer, Boolean, UnicodeText
 
 from kansha.models import Entity
 from nagare.database import session
-from kansha.card_addons.label import DataLabel
+from kansha.user.models import DataUser
 from kansha.column.models import DataColumn
-from sqlalchemy.ext.associationproxy import AssociationProxy
-from kansha.user.models import DataUser, DataBoardMember, DataBoardManager
+from kansha.card_addons.label import DataLabel
+from kansha.card_addons.members import DataMember
 
 
 class DataBoard(Entity):
@@ -53,10 +53,6 @@ class DataBoard(Entity):
     description = Field(UnicodeText, default=u'')
     visibility = Field(Integer, default=0)
     version = Field(Integer, default=0, server_default='0')
-    board_members = OneToMany('DataBoardMember', cascade='delete')
-    board_managers = OneToMany('DataBoardManager', cascade='delete')
-    members = AssociationProxy('board_members', 'member', creator=lambda member: DataBoardMember(member=member))
-    managers = AssociationProxy('board_managers', 'member', creator=lambda member: DataBoardManager(member=member))
     uri = Field(Unicode(255), index=True, unique=True)
     last_users = ManyToOne('DataUser', order_by=('fullname', 'email'))
     pending = OneToMany('DataToken', order_by='username')
@@ -73,9 +69,19 @@ class DataBoard(Entity):
 
     @property
     def template_title(self):
-        if not self.managers or self.visibility == 0:
+        # TODO: move to board extension
+        managers = DataMember.get_board_managers(self)
+        if not managers or self.visibility == 0:
             return self.title
-        return u'{0} ({1})'.format(self.title, self.managers[0].fullname)
+        return u'{0} ({1})'.format(self.title, managers[0].fullname)
+
+    @property
+    def members(self):
+        return DataMember.get_board_members(self)
+
+    @property
+    def managers(self):
+        return DataMember.get_board_managers(self)
 
     def copy(self):
         new_data = DataBoard(title=self.title,
@@ -95,11 +101,6 @@ class DataBoard(Entity):
 
     def get_label_by_title(self, title):
         return (l for l in self.labels if l.title == title).next()
-
-    def delete_members(self):
-        for member in self.board_members:
-            session.delete(member)
-        session.flush()
 
     def delete_history(self):
         for event in self.history:
@@ -134,63 +135,6 @@ class DataBoard(Entity):
     def get_by_uri(cls, uri):
         return cls.get_by(uri=uri)
 
-    def has_member(self, user):
-        """Return True if user is member of the board
-
-        In:
-         - ``user`` -- user to test (User instance)
-        Return:
-         - True if user is member of the board
-        """
-        return user.data in self.members
-
-    def remove_member(self, board_member):
-        board_member.delete()
-
-    def has_manager(self, user):
-        """Return True if user is manager of the board
-
-        In:
-         - ``user`` -- user to test (User instance)
-        Return:
-         - True if user is manager of the board
-        """
-        return user.data in self.managers
-
-    def remove_manager(self, board_member):
-        obj = DataBoardManager.get_by(board=self, member=board_member.get_user_data())
-        if obj is not None:
-            obj.delete()
-        self.remove_member(board_member)
-
-    def change_role(self, board_member, new_role):
-        obj = DataBoardManager.get_by(board=self, member=board_member.get_user_data())
-        if new_role == 'manager':
-            if obj is None:
-                obj = DataBoardManager(board=self, member=board_member.get_user_data())
-                session.add(obj)
-        else:
-            if obj is not None:
-                obj.delete()
-
-    def last_manager(self, member):
-        """Return True if member is the last manager of the board"""
-        return member.role == 'manager' and len(self.managers) == 1
-
-    def add_member(self, new_member, role='member'):
-        """ Add new member to the board
-
-        In:
-         - ``new_member`` -- user to add (DataUser instance)
-         - ``role`` -- role's member (manager or member)
-        """
-        self.board_members.append(DataBoardMember(member=new_member.data))
-
-        if role == 'manager':
-            self.managers.append(new_member.data)
-
-        session.flush()
-
     def get_pending_users(self):
         emails = [token.username for token in self.pending]
         return DataUser.query.filter(DataUser.email.in_(emails))
@@ -211,9 +155,8 @@ class DataBoard(Entity):
 
         q1 = q.filter(cls.visibility == public_value)
 
-        q2 = q.join(DataBoardManager)
-        q2 = q2.filter(DataBoardManager.user_username == user_username)
-        q2 = q2.filter(DataBoardManager.user_source == user_source)
+        q2 = q.join(DataMember)
+        q2 = q2.filter_by(user_username=user_username, user_source=user_source, role=u'manager')
         q2 = q2.filter(cls.visibility != public_value)
 
         return q1, q2

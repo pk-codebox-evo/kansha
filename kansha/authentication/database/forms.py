@@ -833,7 +833,8 @@ class EmailInvitation(object):
             token = self.token_generator.create_token()
             self.board.pending.append(token)
         else:
-            who.add_board(self.board)
+            who = usermanager.UserManager.get_app_user(who.username, data=who)
+            self.board.add_member(who)
         return u'/'.join((self.confirmation_base_url, self.board.url))
 
     def send_email(self, mail_sender):

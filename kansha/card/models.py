@@ -26,9 +26,6 @@ class DataCard(Entity):
     creation_date = Field(DateTime, default=datetime.datetime.utcnow)
     column = ManyToOne('DataColumn')
 
-    # feature data to move to card extensions
-    members = ManyToMany('DataUser')
-
     def update(self, other):
         self.title = other.title
         self.index = other.index

@@ -85,8 +85,8 @@ def render_User_remove(self, h, comp, *args):
     return h.root
 
 
-@presentation.render_for(User, "member")
-@presentation.render_for(User, "manager")
+@presentation.render_for(User, 'member')
+@presentation.render_for(User, 'manager')
 def render_User_manager(self, h, comp, model):
     """Render for search result"""
     with h.div(class_='member'):
@@ -107,7 +107,7 @@ def render_User_manager(self, h, comp, model):
     return h.root
 
 
-@presentation.render_for(User, "last_manager")
+@presentation.render_for(User, 'last_manager')
 def render_User_last_manager(self, h, comp, *args):
     """Render for search result"""
     with h.div(class_='member'):

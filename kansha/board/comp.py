@@ -8,16 +8,13 @@
 # this distribution.
 # --
 
-import re
 import json
-import unicodedata
-from cStringIO import StringIO
 from functools import partial
 
-import xlwt
-from webob import exc
+from nagare.i18n import _
+from peak.rules import when
+from nagare.security import common
 from nagare.database import session
-from nagare.i18n import _, format_date
 from nagare import component, log, security, var
 
 from kansha import title
@@ -30,11 +27,12 @@ from kansha.toolbox import popin, overlay
 from kansha.card_addons.label import Label
 from kansha.authentication.database import forms
 from kansha import events, exceptions, validator
+from kansha.card_addons.members import DataMember
 
+from .models import DataBoard
 from .boardconfig import BoardConfig
 from .excel_export import ExcelExport
 from .templates import SaveTemplateTask
-from .models import DataBoard, DataBoardMember
 
 
 # Board visibility
@@ -50,7 +48,6 @@ VOTES_PUBLIC = 2
 COMMENTS_OFF = 0
 COMMENTS_MEMBERS = 1
 COMMENTS_PUBLIC = 2
-
 
 # WEIGHTING CARDS
 WEIGHTING_OFF = 0
@@ -104,6 +101,9 @@ class Board(events.EventHandlerMixIn):
 
         self.columns = []
         self.archive_column = None
+        self.members = []
+        self.managers = []
+        self.pending = []
         if load_children:
             self.load_children()
 
@@ -147,6 +147,10 @@ class Board(events.EventHandlerMixIn):
             title.EditableTitle(self.get_title)).on_answer(self.set_title)
 
         self.must_reload_search = False
+
+    @property
+    def url(self):
+        return self.data.url
 
     @classmethod
     def get_id_by_uri(cls, uri):
@@ -200,7 +204,7 @@ class Board(events.EventHandlerMixIn):
         if self.data.background_image:
             new_data.background_image = self.assets_manager.copy(self.data.background_image)
         new_board = self._services(Board, new_data.id, self.app_title, self.app_banner, self.theme, self.card_extensions, self.search_engine, load_children=False)
-        new_board.add_member(owner, 'manager')
+        new_board.add_member(owner, u'manager')
 
         assert(self.columns or self.data.is_template)
         cols = [col() for col in self.columns if not col().is_archive]
@@ -269,12 +273,9 @@ class Board(events.EventHandlerMixIn):
         Recreate overlays
         """
         data = self.data
-        members = [dbm.member for dbm in data.board_members]
-        members = [member for member in set(members) - set(data.managers)]
-        members.sort(key=lambda m: (m.fullname, m.email))
-        self.members = [component.Component(BoardMember(usermanager.UserManager.get_app_user(member.username, data=member), self, 'member'))
-                        for member in members]
-        self.managers = [component.Component(BoardMember(usermanager.UserManager.get_app_user(member.username, data=member), self, 'manager' if len(data.managers) != 1 else 'last_manager'))
+        self.members = [component.Component(BoardMember(usermanager.UserManager.get_app_user(member.user_username, data=member.user), self, 'member'))
+                        for member in data.members]
+        self.managers = [component.Component(BoardMember(usermanager.UserManager.get_app_user(member.user_username, data=member.user), self, 'manager' if len(data.managers) != 1 else 'last_manager'))
                          for member in data.managers]
         self.pending = [component.Component(BoardMember(PendingUser(token.token), self, 'pending'))
                         for token in data.pending]
@@ -466,7 +467,6 @@ class Board(events.EventHandlerMixIn):
         for column in self.columns:
             column().delete(purge=True)
         self.data.delete_history()
-        self.data.delete_members()
         session.refresh(self.data)
         self.data.delete()
 
@@ -500,12 +500,8 @@ class Board(events.EventHandlerMixIn):
         else:
             board_member = None
         self.data.remove_member(board_member)
-        if user.is_manager(self):
-            self.data.remove_manager(board_member)
         if not self.columns:
             self.load_children()
-        for column in self.columns:
-            column().remove_board_member(user)
         if comp:
             self.emit_event(comp, events.BoardLeft)
         return True
@@ -561,15 +557,15 @@ class Board(events.EventHandlerMixIn):
     # Member methods
     ##################
 
-    def last_manager(self, member):
+    def is_last_manager(self, user):
         """Return True if member is the last manager of the board
 
         In:
-         - ``member`` -- member to test
+         - ``user`` -- member to test
         Return:
          - True if member is the last manager of the board
         """
-        return self.data.last_manager(member)
+        return DataMember.is_last_manager(self.data, user.data)
 
     def has_member(self, user):
         """Return True if user is member of the board
@@ -579,7 +575,7 @@ class Board(events.EventHandlerMixIn):
         Return:
          - True if user is member of the board
         """
-        return self.data.has_member(user)
+        return DataMember.is_board_member(self.data, user.data)
 
     def has_manager(self, user):
         """Return True if user is manager of the board
@@ -589,16 +585,16 @@ class Board(events.EventHandlerMixIn):
         Return:
          - True if user is manager of the board
         """
-        return self.data.has_manager(user)
+        return DataMember.is_board_manager(self.data, user.data)
 
-    def add_member(self, new_member, role='member'):
+    def add_member(self, user, role=u'member'):
         """ Add new member to the board
 
         In:
-         - ``new_member`` -- user to add (DataUser instance)
+         - ``user`` -- user to add (DataUser instance)
          - ``role`` -- role's member (manager or member)
         """
-        self.data.add_member(new_member, role)
+        DataMember.add_board_user(self.data, user.data, role)
 
     def remove_pending(self, member):
         # remove from pending list
@@ -607,17 +603,14 @@ class Board(events.EventHandlerMixIn):
         # remove invitation
         self.remove_invitation(member.username)
 
-    def remove_manager(self, manager):
-        # remove from managers list
-        self.managers = [p for p in self.managers if p() != manager]
-        # remove manager from data part
-        self.data.remove_manager(manager)
-
     def remove_member(self, member):
         # remove from members list
-        self.members = [p for p in self.members if p() != member]
+        if member.role == u'manager':
+            self.managers = [p for p in self.managers if p() != member]
+        else:
+            self.members = [p for p in self.members if p() != member]
         # remove member from data part
-        self.data.remove_member(member)
+        DataMember.remove_board_user(self.data, member.user().data)
 
     def remove_board_member(self, member):
         """Remove member from board
@@ -630,13 +623,13 @@ class Board(events.EventHandlerMixIn):
         In:
             - ``member`` -- Board Member instance to remove
         """
-        if self.last_manager(member):
+        if self.is_last_manager(member.user()):
             # Can't remove last manager
             raise exceptions.KanshaException(_("Can't remove last manager"))
 
         log.info('Removing member %s' % (member,))
         remove_method = {'pending': self.remove_pending,
-                         'manager': self.remove_manager,
+                         'manager': self.remove_member,
                          'member': self.remove_member}
         remove_method[member.role](member)
 
@@ -645,8 +638,6 @@ class Board(events.EventHandlerMixIn):
         # should not rely on a full component tree.
         if not self.columns:
             self.load_children()
-        for c in self.columns:
-            c().remove_board_member(member)
 
     def change_role(self, member, new_role):
         """Change member's role
@@ -656,10 +647,11 @@ class Board(events.EventHandlerMixIn):
             - ``new_role`` -- new role
         """
         log.info('Changing role of %s to %s' % (member, new_role))
-        if self.last_manager(member):
+        user = member.user()
+        if self.is_last_manager(user):
             raise exceptions.KanshaException(_("Can't remove last manager"))
 
-        self.data.change_role(member, new_role)
+        DataMember.change_board_user_role(self.data, user.data, new_role)
         self.update_members()
 
     def remove_invitation(self, email):
@@ -685,7 +677,7 @@ class Board(events.EventHandlerMixIn):
         """
         for email in set(emails):
             # If user already exists add it to the board directly or invite it otherwise
-            invitation = forms.EmailInvitation(self.app_title, self.app_banner, self.theme, email, security.get_user().data, self.data, application_url)
+            invitation = forms.EmailInvitation(self.app_title, self.app_banner, self.theme, email, security.get_user(), self, application_url)
             invitation.send_email(self.mail_sender)
 
     def resend_invitation(self, pending_member, application_url):
@@ -697,7 +689,7 @@ class Board(events.EventHandlerMixIn):
             - ``pending_member`` -- Send invitation to this user (PendingMember instance)
         """
         email = pending_member.username
-        invitation = forms.EmailInvitation(self.app_title, self.app_banner, self.theme, email, security.get_user().data, self.data, application_url)
+        invitation = forms.EmailInvitation(self.app_title, self.app_banner, self.theme, email, security.get_user(), self, application_url)
         invitation.send_email(self.mail_sender)
         # re-calculate pending
         self.pending = [component.Component(BoardMember(PendingUser(token.token), self, "pending"))
@@ -882,14 +874,10 @@ class BoardMember(object):
 
     @property
     def data(self):
-        member = DataBoardMember.query
-        member = member.filter_by(board=self.board.data)
-        member = member.filter_by(member=self.get_user_data())
-        return member.first()
+        return DataMember.get_by(board=self.board.data, user=self.user().data)
 
     def delete(self):
-        session.delete(self.data)
-        session.flush()
+        return DataMember.remove_board_user(self.board.data, user=self.user().data)
 
     @property
     def username(self):
@@ -903,9 +891,15 @@ class BoardMember(object):
         if action == 'remove':
             self.board.remove_board_member(self)
         elif action == 'toggle_role':
-            self.board.change_role(self, 'manager' if self.role == 'member' else 'member')
+            role = u'manager' if self.role == u'member' else u'member'
+            self.board.change_role(self, role)
+            self.role = role
         elif action == 'resend':
             self.board.resend_invitation(self, application_url)
 
-    def get_user_data(self):
-        return self.user().data
+
+# TODO: move this to board extension
+@when(common.Rules.has_permission, "user and perm == 'Add Users' and isinstance(subject, Board)")
+def has_permission_Board_add_users(self, user, perm, board):
+    """Test if users is one of the board's managers, if he is he can add new user to the board"""
+    return board.has_manager(user)

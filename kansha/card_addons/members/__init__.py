@@ -10,3 +10,4 @@
 
 from . import view
 from .comp import CardMembers
+from .models import DataMember

@@ -9,23 +9,15 @@
 
 from nagare.i18n import _
 from peak.rules import when
-from nagare.security import common
 from nagare import component, security, log
 
 from kansha import exceptions
 from kansha.toolbox import overlay
 from kansha.user import usermanager
-from kansha.board.comp import Board
 from kansha.cardextension import CardExtension
 from kansha.services.actionlog.messages import render_event
 
-
-# TODO: move this to board extension
-@when(common.Rules.has_permission, "user and perm == 'Add Users' and isinstance(subject, Board)")
-def has_permission_Board_add_users(self, user, perm, board):
-    """Test if users is one of the board's managers, if he is he can add new user to the board"""
-    return board.has_manager(user)
-
+from .models import DataMember
 
 @when(render_event, "action=='card_add_member'")
 def render_event_card_add_member(action, data):
@@ -55,8 +47,8 @@ class CardMembers(CardExtension):
             overlay.Overlay(lambda r: (r.i(class_='ico-btn icon-user'), r.span(_(u'+'), class_='count')),
                             lambda r: component.Component(self).render(r, model='add_member_overlay'), dynamic=True, cls='card-overlay'))
         self.new_member = component.Component(usermanager.NewMember(self.autocomplete_method), model='add_members')
-        self.members = [component.Component(usermanager.UserManager.get_app_user(member.username, data=member))
-                        for member in card.members]
+        self.members = [component.Component(usermanager.UserManager.get_app_user(member.user_username, data=member.user))
+                        for member in DataMember.get_card_members(self.card.data)]
 
         self.see_all_members = component.Component(
             overlay.Overlay(lambda r: component.Component(self).render(r, model='more_users'),

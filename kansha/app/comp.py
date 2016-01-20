@@ -31,6 +31,7 @@ from kansha.authentication import login
 from kansha import services, notifications
 from kansha.services.search import SearchEngine
 from kansha.user.usermanager import UserManager
+from kansha.card_addons.members import DataMember  # Move this to board extensions
 from kansha.board.boardsmanager import BoardsManager
 from kansha.security import SecurityManager, Unauthorized
 from kansha.user.user_profile import get_userform  # !!!!!!!!!!!!!!!
@@ -150,7 +151,7 @@ class Kansha(object):
         """
         user = security.get_user()
         data_board = user.get_last_board()
-        if data_board and not data_board.archived and data_board.has_member(user):
+        if data_board and not data_board.archived and DataMember.is_board_member(data_board, user.data):
             self.select_board(data_board.id)
         else:
             self._on_menu_entry('boards')
