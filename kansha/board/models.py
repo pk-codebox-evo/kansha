@@ -76,10 +76,6 @@ class DataBoard(Entity):
         return u'{0} ({1})'.format(self.title, managers[0].fullname)
 
     @property
-    def members(self):
-        return DataMember.get_board_members(self)
-
-    @property
     def managers(self):
         return DataMember.get_board_managers(self)
 

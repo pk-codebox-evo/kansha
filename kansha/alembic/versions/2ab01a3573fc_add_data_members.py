@@ -38,7 +38,7 @@ def upgrade():
     for board_id, username, source, notify in bind.execute(select):
         key = (username, source)
         if not key in members:
-            members[key] = DataMember(board_id=board_id, user_username=username, user_source=source, role=u'member', notify=notify)
+            members[key] = DataMember(board_id=board_id, user_username=username, user_source=source, role=u'', notify=notify)
         else:
             members[key].notify = notify
 
@@ -54,4 +54,9 @@ def upgrade():
 
 
 def downgrade():
+    bind = op.get_bind()
+    session.bind = bind
+    elixir.metadata.bind = bind
+    elixir.setup_all()
+    elixir.create_all()
     op.drop_table('members')

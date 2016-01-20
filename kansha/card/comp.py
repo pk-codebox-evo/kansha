@@ -153,19 +153,3 @@ class Card(events.EventHandlerMixIn):
         if kind == events.PopinClosed:
             kind = events.CardEditorClosed
         return super(Card, self).emit_event(comp, kind, data)
-
-    ################################
-    # Feature methods, persistency #
-    ################################
-
-    # Members
-
-    def add_member(self, new_data_member):
-        self.data.members.append(new_data_member)
-
-    def remove_member(self, data_member):
-        self.data.remove_member(data_member)
-
-    @property
-    def members(self):
-        return self.data.members

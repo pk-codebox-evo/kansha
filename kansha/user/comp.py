@@ -29,6 +29,12 @@ class User(security_common.User):
         self.username = username
         self._data = kw.get('data')
 
+    def __eq__(self, other):
+        return self.username == other.username and self.source == other.source
+
+    def __ne__(self, other):
+        return not self == other
+
     @property
     def data(self):
         """Return the user object from database

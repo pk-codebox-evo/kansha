@@ -41,6 +41,7 @@ class CardMembers(CardExtension):
         """
 
         super(CardMembers, self).__init__(card, action_log, configurator)
+        self._favorites = []
 
         # members part of the card
         self.overlay_add_members = component.Component(
@@ -66,7 +67,7 @@ class CardMembers(CardExtension):
         Return:
             - a set of user (UserData instance)
         """
-        return self.get_all_available_user_ids() | self.get_pending_user_ids() - set(user.id for user in self.card.members)
+        return self.get_all_available_user_ids() | self.get_pending_user_ids() - set(user.id for user in DataMember.get_card_members(self.card.data))
 
     def get_all_available_user_ids(self):
         return self.configurator.get_available_user_ids() if self.configurator else []
@@ -87,14 +88,12 @@ class CardMembers(CardExtension):
         """
 
         # to be optimized later if still exists
-        member_usernames = set(member.username for member in self.card.members)
-        # FIXME: don't reference parent
+        member_usernames = set(member.username for member in DataMember.get_card_members(self.card.data))
         board_user_stats = [(nb_cards, username) for username, nb_cards in self.member_stats.iteritems()]
         board_user_stats.sort(reverse=True)
         # Take the 5 most popular that are not already affected to this card
         favorites = [username for (__, username) in board_user_stats
                      if username not in member_usernames]
-
         self._favorites = [component.Component(usermanager.UserManager.get_app_user(username), "friend")
                            for username in favorites[:5]]
         return self._favorites
@@ -107,39 +106,35 @@ class CardMembers(CardExtension):
         Return:
             - JS code, reload card and hide overlay
         """
-        members = []
         # Get all users with emails
         members = filter(None, map(usermanager.UserManager.get_by_email, emails))
         for new_data_member in members:
             self.add_member(new_data_member)
-            values = {'user_id': new_data_member.username, 'user': new_data_member.fullname, 'card': self.card.get_title()}
-            self.action_log.add_history(security.get_user(), u'card_add_member', values)
 
-    def add_member(self, new_data_member):
+    def add_member(self, user_data):
         """Attach new member to card
 
         In:
-            - ``new_data_member`` -- UserData instance
+          ``user_data`` -- UserData instance
         Return:
             - the new DataMember added
         """
-        if (new_data_member not in self.card.members and
-            new_data_member.id in self.get_available_user_ids()):
-
-            self.card.add_member(new_data_member)
-            log.debug('Adding %s to members' % (new_data_member.username,))
-            self.members.append(
-                component.Component(usermanager.UserManager.get_app_user(
-                    new_data_member.username, data=new_data_member)))
+        users = [member.user for member in DataMember.get_card_members(self.card.data)]
+        if user_data not in users and user_data.id in self.get_available_user_ids():
+            DataMember.add_card_member(self.card.data, user_data)
+            log.debug('Adding %s to card %s', user_data.username, self.card.id)
+            user = usermanager.UserManager.get_app_user(user_data.username, data=user_data)
+            self.members.append(component.Component(user))
+            values = {'user_id': user_data.username, 'user': user_data.fullname, 'card': self.card.get_title()}
+            self.action_log.add_history(security.get_user(), u'card_add_member', values)
 
     def remove_member(self, username):
         """Remove member username from card member"""
-        data_member = usermanager.UserManager.get_by_username(username)
-        if not data_member:
+        datauser = usermanager.UserManager.get_by_username(username)
+        if not datauser:
             raise exceptions.KanshaException(_("User not found : %s" % username))
-
-        log.debug('Removing %s from card %s' % (username, self.card.id))
-        self.card.remove_member(data_member)
+        log.debug('Removing %s from card %s', username, self.card.id)
+        DataMember.remove_card_member(self.card.data, datauser)
         for member in self.members:
             if member().username == username:
                 self.members.remove(member)

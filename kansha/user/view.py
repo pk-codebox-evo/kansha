@@ -9,7 +9,7 @@
 #--
 
 from nagare.i18n import _
-from nagare import presentation, component, ajax, var
+from nagare import presentation, component, ajax, var, security
 
 from kansha import validator
 from kansha.toolbox import overlay, remote
@@ -99,11 +99,12 @@ def render_User_manager(self, h, comp, model):
                     class_=("btn btn-primary toggle" if model == 'manager'
                             else "btn btn-primary")
                 ).action(ajax.Update(action=lambda: comp.answer('toggle_role')))
-                h << h.input(
-                    value=_("Remove"),
-                    type="submit",
-                    class_="btn btn-primary delete"
-                ).action(ajax.Update(action=lambda: comp.answer('remove')))
+                if security.get_user() != self:  # Can't remove yourself
+                    h << h.input(
+                        value=_("Remove"),
+                        type="submit",
+                        class_="btn btn-primary delete"
+                    ).action(ajax.Update(action=lambda: comp.answer('remove')))
     return h.root
 
 

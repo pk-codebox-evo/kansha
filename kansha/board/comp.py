@@ -272,13 +272,17 @@ class Board(events.EventHandlerMixIn):
         Recalculate members + managers + pending
         Recreate overlays
         """
-        data = self.data
-        self.members = [component.Component(BoardMember(usermanager.UserManager.get_app_user(member.user_username, data=member.user), self, 'member'))
-                        for member in data.members]
-        self.managers = [component.Component(BoardMember(usermanager.UserManager.get_app_user(member.user_username, data=member.user), self, 'manager' if len(data.managers) != 1 else 'last_manager'))
-                         for member in data.managers]
+        self.members = []
+        self.managers = []
+        for member in DataMember.get_board_members(self.data):
+            app_user = usermanager.UserManager.get_app_user(member.user_username, data=member.user)
+            if member.role == u'manager':
+                model = 'last_manager' if self.is_last_manager(app_user) else 'manager'
+                self.managers.append(component.Component(BoardMember(app_user, self, model)))
+            else:
+                self.members.append(component.Component(BoardMember(app_user, self, 'member')))
         self.pending = [component.Component(BoardMember(PendingUser(token.token), self, 'pending'))
-                        for token in data.pending]
+                        for token in self.data.pending]
 
     def set_title(self, title):
         """Set title
@@ -492,14 +496,7 @@ class Board(events.EventHandlerMixIn):
         """Children must be loaded."""
         # FIXME: all member management function should live in another component than Board.
         user = security.get_user()
-        for member in self.members:
-            m_user = member().user().data
-            if (m_user.username, m_user.source) == (user.data.username, user.data.source):
-                board_member = member()
-                break
-        else:
-            board_member = None
-        self.data.remove_member(board_member)
+        DataMember.remove_board_user(self.data, user.data)
         if not self.columns:
             self.load_children()
         if comp:
@@ -739,12 +736,7 @@ class Board(events.EventHandlerMixIn):
         Return:
             - a dictionary {'username', 'nb used'}
         """
-        member_stats = {}
-        for c in self.columns:
-            column_member_stats = c().get_member_stats()
-            for username in column_member_stats:
-                member_stats[username] = member_stats.get(username, 0) + column_member_stats[username]
-        return member_stats
+        return DataMember.get_board_member_stats(self.data)
 
     def get_available_user_ids(self):
         """Return list of member
@@ -752,7 +744,8 @@ class Board(events.EventHandlerMixIn):
         Return:
             - list of members
         """
-        return set(dbm.member.id for dbm in self.data.board_members)
+        members = DataMember.get_board_members(self.data)
+        return set(dbm.user_username for dbm in members)
 
     def get_pending_user_ids(self):
         return set(user.id for user in self.data.get_pending_users())
