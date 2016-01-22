@@ -31,15 +31,15 @@ class BasicUserForm(editor.Editor):
     View all fields but you can modify language only
     """
 
-    fields = {'username', 'email', 'fullname', 'language', 'picture', 'display_week_numbers'}
+    fields = {'username', 'email', 'fullname', 'language', 'picture'}
 
-    def __init__(self, target, *args):
+    def __init__(self, app_title, app_banner, theme, target, *args):
         """
         In:
          - ``target`` -- DataUser instance
         """
+        self.theme = theme
         super(BasicUserForm, self).__init__(target, self.fields)
-        self.display_week_numbers.validate(validator.BoolValidator)
 
     def commit(self):
         super(BasicUserForm, self).commit(self.fields)
@@ -61,13 +61,6 @@ class BasicUserForm(editor.Editor):
         state['_target'] = None
         return state
 
-    def pre_action(self):
-        """Actions done before form submit
-
-         - Reset display_week_numbers to False
-        """
-        self.display_week_numbers(False)
-
 
 @presentation.render_for(BasicUserForm)
 def render(self, h, comp, *args):
@@ -76,20 +69,23 @@ def render(self, h, comp, *args):
 
 @presentation.render_for(BasicUserForm, model='edit')
 def render(self, h, comp, *args):
-    with h.div:
-        with h.form.pre_action(self.pre_action):
+    h.head.css_url('css/themes/home.css')
+    h.head.css_url('css/themes/%s/home.css' % self.theme)
+
+    with h.div(class_='row'):
+        with h.form:
             with h.ul:
                 with h.li:
-                    h << _('Username')
-                    h << h.input(disabled=True, value=self.username())
+                    h << (_('Username'), u' ',
+                          h.input(type='text', disabled=True, value=self.username()))
                 with h.li:
-                    h << _('Fullname')
-                    h << h.input(disabled=True, value=self.fullname())
+                    h << (_('Fullname'), u' ',
+                          h.input(type='text', disabled=True, value=self.fullname()))
                 with h.li:
-                    h << _('Email')
-                    h << h.input(disabled=True, value=self.email())
+                    h << (_('Email'), u' ',
+                          h.input(type='text', disabled=True, value=self.email()))
                 with h.li:
-                    h << _('Language')
+                    h << (_('Language'), u' ')
                     with h.select().action(self.language).error(self.language.error):
                         for (id, lang) in LANGUAGES.items():
                             if self.language() == id:
@@ -98,13 +94,9 @@ def render(self, h, comp, *args):
                                 h << h.option(_(lang), value=id)
                 if self.target.picture:
                     with h.li:
-                        h << _('Picture')
+                        h << (_('Picture'), u' ')
                         h << h.div(
                             h.img(src=self.target.picture, class_='avatar big'))
-
-                with h.li:
-                    h << h.label(_('Display week numbers in calendars'))
-                    h << h.input(type='checkbox').selected(self.display_week_numbers.value).action(self.display_week_numbers)
 
             with h.div:
                 h << h.input(value=_('Save'), class_='btn btn-primary',
@@ -129,7 +121,7 @@ class UserForm(BasicUserForm):
          - ``target`` -- DataUser instance
          - ``mail_sender_service`` -- MailSender service
         """
-        super(UserForm, self).__init__(target, self.fields)
+        super(UserForm, self).__init__(app_title, app_banner, theme, target, self.fields)
 
         self.app_title = app_title
         self.app_banner = app_banner
@@ -266,7 +258,7 @@ class UserForm(BasicUserForm):
 
         # Save new value
         self.assets_manager.save(new_file.file.read(), file_id=uid, metadata={
-            'filename': new_file.filename, 'content-type': new_file.type}, thumb_size=(100, 100))
+            'filename': new_file.filename, 'content-type': new_file.type}, THUMB_SIZE=(100, 100))
         self.picture(self.assets_manager.get_image_url(uid, size='thumb'))
 
 
@@ -276,7 +268,7 @@ def render(self, h, comp, *args):
     h.head.css_url('css/themes/%s/home.css' % self.theme)
 
     with h.div(class_='row'):
-        with h.form.pre_action(self.pre_action):
+        with h.form:
             with h.ul:
                 with h.li:
                     h << (_('Username'), ' ',
@@ -325,11 +317,6 @@ def render(self, h, comp, *args):
                           h.input(type='password').action(self.password_repeat)
                           .error(self.password_repeat.error))
 
-                with h.li:
-                    week_numbers_id = h.generate_id('week_numbers_')
-                    h << h.label(_('Display week numbers in calendars'), for_=week_numbers_id)
-                    h << h.input(type='checkbox', id=week_numbers_id).selected(self.display_week_numbers.value).action(self.display_week_numbers)
-
             with h.div(class_=''):
                 h << h.input(_('Save'),
                              class_='btn btn-primary',
@@ -355,4 +342,7 @@ class ExternalUserForm(BasicUserForm):
 def get_userform(app_title, app_banner, theme, source):
     """ User form for application user
     """
-    return ExternalUserForm
+    def factory_compatible_with_services(target, services_service):
+        return services_service(ExternalUserForm, app_title, app_banner, theme, target)
+
+    return factory_compatible_with_services
