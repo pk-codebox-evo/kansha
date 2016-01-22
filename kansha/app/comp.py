@@ -151,6 +151,7 @@ class Kansha(object):
         """
         user = security.get_user()
         data_board = user.get_last_board()
+        # TODO: remove access to DataMember when board-extensions are ready
         if data_board and not data_board.archived and DataMember.is_board_member(data_board, user.data):
             self.select_board(data_board.id)
         else:

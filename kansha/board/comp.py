@@ -274,6 +274,7 @@ class Board(events.EventHandlerMixIn):
         """
         self.members = []
         self.managers = []
+        # TODO: remove access to DataMember when board-extensions are ready
         for member in DataMember.get_board_members(self.data):
             app_user = usermanager.UserManager.get_app_user(member.user_username, data=member.user)
             if member.role == u'manager':
@@ -743,6 +744,7 @@ class Board(events.EventHandlerMixIn):
         Return:
             - list of members
         """
+        # TODO: remove access to DataMember when board-extensions are ready
         members = DataMember.get_board_members(self.data)
         return set(dbm.user_username for dbm in members)
 

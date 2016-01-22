@@ -14,7 +14,6 @@ from nagare import database
 from elixir import metadata as __metadata__
 
 from kansha import helpers
-from kansha.board import boardsmanager
 from kansha.board.models import DataBoard
 from kansha.board import comp as board_module
 
@@ -164,126 +163,6 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(board.model, 'calendar')
         board.switch_view()
         self.assertEqual(board.model, 'columns')
-
-    def test_has_member_1(self):
-        """Test has member 1"""
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user()
-        helpers.set_context(user)
-        data = board.data  # don't collect
-        members = data.members
-        members.append(user.data)
-        self.assertTrue(board.has_member(user))
-
-    def test_has_member_2(self):
-        """Test has member 2"""
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user('bis')
-        helpers.set_context(user)
-        user_2 = helpers.create_user(suffixe='2')
-        data = board.data  # don't collect
-        data.managers.append(user_2.data)
-        self.assertFalse(board.has_member(user))
-
-    def test_has_manager_1(self):
-        """Test has manager 1"""
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user('bis')
-        helpers.set_context(user)
-        self.assertFalse(board.has_manager(user))
-        user.data.managed_boards.append(board.data)
-        user.data.boards.append(board.data)
-        self.assertTrue(board.has_manager(user))
-
-    def test_has_manager_2(self):
-        """Test has manager 2"""
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user('bis')
-        helpers.set_context(user)
-        user_2 = helpers.create_user(suffixe='2')
-        self.assertFalse(board.has_manager(user))
-        data = board.data  # don't collect
-        data.managers.append(user_2.data)
-        data.members.append(user_2.data)
-        database.session.flush()
-        self.assertFalse(board.has_manager(user))
-
-    def test_add_member_1(self):
-        """Test add member"""
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user('bis')
-        helpers.set_context(user)
-        self.assertFalse(board.has_member(user))
-        board.add_member(user)
-        self.assertTrue(board.has_member(user))
-
-    def test_change_role(self):
-        '''Test change role'''
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user('test')
-        board.add_member(user)
-        board.update_members()
-
-        def find_board_member():
-            for member in board.all_members:
-                if member().data.username == user.username:
-                    return member()
-
-        member = find_board_member()
-        self.assertEqual(len(board.members), 1)
-        self.assertEqual(len(board.managers), 1)
-
-        member.dispatch('toggle_role', '')
-        member = find_board_member()
-        board.update_members()
-        self.assertEqual(len(board.members), 0)
-        self.assertEqual(len(board.managers), 2)
-
-        member.dispatch('toggle_role', '')
-        board.update_members()
-        self.assertEqual(len(board.members), 1)
-        self.assertEqual(len(board.managers), 1)
-
-    def test_get_boards(self):
-        '''Test get boards methods'''
-
-        helpers.set_dummy_context()
-        board = helpers.create_board()
-        user = helpers.create_user()
-        user2 = helpers.create_user('bis')
-        board.add_member(user2, 'member')
-        boards_manager = helpers.get_boards_manager()
-        self.assertTrue(board.has_manager(user))
-        self.assertFalse(board.has_manager(user2))
-
-        helpers.set_context(user)
-        boards_manager.load_user_boards()
-        self.assertNotIn(board.id, boards_manager.last_modified_boards)
-        self.assertNotIn(board.id, boards_manager.guest_boards)
-        self.assertIn(board.id, boards_manager.my_boards)
-        self.assertNotIn(board.id, boards_manager.archived_boards)
-
-        helpers.set_context(user2)
-        boards_manager.load_user_boards()
-        self.assertNotIn(board.id, boards_manager.last_modified_boards)
-        self.assertIn(board.id, boards_manager.guest_boards)
-        self.assertNotIn(board.id, boards_manager.my_boards)
-        self.assertNotIn(board.id, boards_manager.archived_boards)
-
-        column = board.create_column(1, u'test')
-        column.create_card(u'test')
-        boards_manager.load_user_boards()
-        self.assertIn(board.id, boards_manager.last_modified_boards)
-
-        board.archive()
-        boards_manager.load_user_boards()
-        self.assertIn(board.id, boards_manager.archived_boards)
 
     def test_get_by(self):
         '''Test get_by_uri and get_by_id methods'''

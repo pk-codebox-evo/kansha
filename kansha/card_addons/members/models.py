@@ -88,7 +88,7 @@ class DataMember(Entity):
         return q.all()
 
     def add_card(self, card):
-        if not card in self.cards:
+        if card not in self.cards:
             self.cards.append(card)
 
     def remove_card(self, card):

@@ -58,6 +58,10 @@ class CardMembers(CardExtension):
         app_user = usermanager.UserManager.get_app_user(data_member.user_username, data=data_member.user)
         return Member(app_user, self.configurator, data_member.role)
 
+    def get_board_members(self, board):
+        for data_member in DataMember.get_board_members(board.data):
+            yield self._get_member_from_data(data_member)
+
     def autocomplete_method(self, value):
         """ """
         available_user_ids = self.get_available_user_ids()

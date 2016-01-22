@@ -89,16 +89,7 @@ class DataUser(Entity):
     registration_date = Field(DateTime, nullable=False)
     last_login = Field(DateTime, nullable=True)
     display_week_numbers = Field(Boolean, default=False)
-    #board_members = OneToMany('DataBoardMember')
-    #boards = AssociationProxy(
-    #    'board_members', 'board',
-    #    creator=lambda board: DataBoardMember(board=board))
-    #board_managers = OneToMany('DataBoardManager')
-    #managed_boards = AssociationProxy(
-    #    'board_managers', 'board',
-    #    creator=lambda board: DataBoardManager(board=board))
     last_board = OneToOne('DataBoard', inverse='last_users')
-    #cards = ManyToMany('DataCard', inverse='members', lazy='dynamic')
     history = OneToMany('DataHistory')
 
     def __init__(self, username, password, fullname, email,
