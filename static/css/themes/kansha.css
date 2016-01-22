@@ -245,7 +245,7 @@ i.icon {
 }
 
 .avatar img {
-    max-width: 30px;
+    /*max-width: 30px;*/
     height: 28px;
     display: block
 }
@@ -481,7 +481,7 @@ i.icon {
 }
 
 .unselectable {
-    cursor: default
+    cursor: default;
 }
 
 .last-manager {
