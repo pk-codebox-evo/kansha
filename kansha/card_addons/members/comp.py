@@ -42,7 +42,6 @@ class CardMembers(CardExtension):
         super(CardMembers, self).__init__(card, action_log, configurator)
 
         # members part of the card
-        self.overlay_add_members = component.Component(None)
         self.new_member = component.Component(usermanager.NewMember(self.autocomplete_method), model='add_members')
         self.members = []
         for data_member in DataMember.get_card_members(self.card.data):
@@ -51,6 +50,10 @@ class CardMembers(CardExtension):
         self.see_all_members = component.Component(
             overlay.Overlay(lambda r: component.Component(self).render(r, model='more_users'),
                             lambda r: component.Component(self).on_answer(self.remove_member).render(r, model='members_list_overlay'),
+                            dynamic=False, cls='card-overlay'))
+        self.overlay_add_members = component.Component(
+            overlay.Overlay(lambda r: (r.i(class_='ico-btn icon-user'), r.span(_(u'+'), class_='count')),
+                            lambda r: component.Component(self).render(r, 'add_member_overlay'),
                             dynamic=False, cls='card-overlay'))
         self._favorites = []
 
