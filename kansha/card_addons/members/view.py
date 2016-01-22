@@ -77,6 +77,11 @@ def add_member(member_ext, member):
     return "YAHOO.kansha.reload_cards['%s']();YAHOO.kansha.app.hideOverlay();" % member_ext.card.id
 
 
+def add_members_by_email(member_ext, emails):
+    member_ext.add_members_by_email(emails)
+    return "YAHOO.kansha.reload_cards['%s']();YAHOO.kansha.app.hideOverlay();" % member_ext.card.id
+
+
 @presentation.render_for(CardMembers, 'add_member_overlay')
 def render_members_add_member_overlay(self, h, comp, *args):
     """Overlay to add member"""
@@ -89,7 +94,7 @@ def render_members_add_member_overlay(self, h, comp, *args):
                     with h.li:
                         h << favorite.on_answer(lambda member: add_member(self, member))
     with h.div(class_='members search'):
-        h << self.new_member.on_answer(self.add_members_by_email)
+        h << self.new_member.on_answer(lambda emails: add_members_by_email(self, emails))
     return h.root
 
 

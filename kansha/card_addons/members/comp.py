@@ -119,9 +119,10 @@ class CardMembers(CardExtension):
             self.add_member(new_data_member)
 
     def add_members_by_email(self, emails):
-        members_by_email = {member().email: member() for member in self.members}
+        datamembers_by_email = {data_member.user.email: data_member for data_member in DataMember.get_board_members(self.configurator.data)}
         for email in emails:
-            member = members_by_email[email]
+            data_member = datamembers_by_email[email]
+            member = self._get_member_from_data(data_member)
             self.add_member(member)
 
     def add_member(self, member):
