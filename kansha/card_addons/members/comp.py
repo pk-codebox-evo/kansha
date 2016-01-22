@@ -121,12 +121,17 @@ class CardMembers(CardExtension):
         for new_data_member in members:
             self.add_member(new_data_member)
 
-    def add_members_by_email(self, emails):
-        datamembers_by_email = {data_member.user.email: data_member for data_member in DataMember.get_board_members(self.configurator.data)}
-        for email in emails:
-            data_member = datamembers_by_email[email]
-            member = self._get_member_from_data(data_member)
-            self.add_member(member)
+    def add_member_by_email(self, email):
+        if not email:
+            return
+        for data_member in DataMember.get_board_members(self.configurator.data):
+            if email == data_member.user.email:
+                member = self._get_member_from_data(data_member)
+                self.add_member(member)
+                break
+
+        # FIXME autocomplete must be recreated, it won't work twice otherwise
+        self.new_member.becomes(usermanager.NewMember(self.autocomplete_method), 'add_members')
 
     def add_member(self, member):
         """Attach new member to card

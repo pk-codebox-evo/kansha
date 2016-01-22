@@ -8,7 +8,7 @@
 #--
 
 from nagare.i18n import _
-from nagare import ajax, presentation, security
+from nagare import presentation, security
 
 from .comp import CardMembers, Member
 
@@ -80,7 +80,7 @@ def render_members_add_member_overlay(self, h, comp, *args):
                     with h.li:
                         h << favorite.on_answer(self.add_member)
     with h.div(class_='members search'):
-        h << self.new_member.on_answer(self.add_members_by_email)
+        h << self.new_member.on_answer(self.add_member_by_email)
     return h.root
 
 

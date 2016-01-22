@@ -163,7 +163,7 @@ def render_AddMembers(self, h, comp, *args):
         h << h.script(
             "document.getElementById(%s).focus()" % ajax.py2js(self.text_id)
         )
-        h << h.button(id=submit_id, style='display:none').action(remote.Action(lambda: comp.answer([] if not value() else [value()])))
+        h << h.button(id=submit_id, style='display:none').action(lambda: comp.answer(value()))
     return h.root
 
 
