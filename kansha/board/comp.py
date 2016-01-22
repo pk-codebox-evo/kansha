@@ -27,7 +27,7 @@ from kansha.toolbox import popin, overlay
 from kansha.card_addons.label import Label
 from kansha.authentication.database import forms
 from kansha import events, exceptions, validator
-from kansha.card_addons.members import DataMember
+from kansha.card_addons.members import DataMember, Member
 
 from .models import DataBoard
 from .boardconfig import BoardConfig
@@ -278,10 +278,10 @@ class Board(events.EventHandlerMixIn):
             app_user = usermanager.UserManager.get_app_user(member.user_username, data=member.user)
             if member.role == u'manager':
                 model = 'last_manager' if self.is_last_manager(app_user) else 'manager'
-                self.managers.append(component.Component(BoardMember(app_user, self, model)))
+                self.managers.append(component.Component(Member(app_user, self, model), 'board'))
             else:
-                self.members.append(component.Component(BoardMember(app_user, self, 'member')))
-        self.pending = [component.Component(BoardMember(PendingUser(token.token), self, 'pending'))
+                self.members.append(component.Component(Member(app_user, self, 'member'), 'board'))
+        self.pending = [component.Component(Member(PendingUser(token.token), self, 'pending'), 'board')
                         for token in self.data.pending]
 
     def set_title(self, title):
@@ -606,8 +606,7 @@ class Board(events.EventHandlerMixIn):
             self.managers = [p for p in self.managers if p() != member]
         else:
             self.members = [p for p in self.members if p() != member]
-        # remove member from data part
-        DataMember.remove_board_user(self.data, member.user().data)
+        member.delete()
 
     def remove_board_member(self, member):
         """Remove member from board
@@ -689,7 +688,7 @@ class Board(events.EventHandlerMixIn):
         invitation = forms.EmailInvitation(self.app_title, self.app_banner, self.theme, email, security.get_user(), self, application_url)
         invitation.send_email(self.mail_sender)
         # re-calculate pending
-        self.pending = [component.Component(BoardMember(PendingUser(token.token), self, "pending"))
+        self.pending = [component.Component(Member(PendingUser(token.token), self, 'pending'), 'board')
                         for token in set(self.data.pending)]
 
 ################
@@ -856,39 +855,6 @@ class BoardDescription(object):
 
     def cancel(self, comp):
         comp.answer(None)
-
-
-class BoardMember(object):
-
-    def __init__(self, user, board, role):
-        self.user = component.Component(user)
-        self.role = role
-        self.board = board
-
-    @property
-    def data(self):
-        return DataMember.get_by(board=self.board.data, user=self.user().data)
-
-    def delete(self):
-        return DataMember.remove_board_user(self.board.data, user=self.user().data)
-
-    @property
-    def username(self):
-        return self.user().username
-
-    @property
-    def email(self):
-        return self.user().email
-
-    def dispatch(self, action, application_url):
-        if action == 'remove':
-            self.board.remove_board_member(self)
-        elif action == 'toggle_role':
-            role = u'manager' if self.role == u'member' else u'member'
-            self.board.change_role(self, role)
-            self.role = role
-        elif action == 'resend':
-            self.board.resend_invitation(self, application_url)
 
 
 # TODO: move this to board extension

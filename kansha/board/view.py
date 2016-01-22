@@ -16,8 +16,7 @@ from kansha.toolbox import overlay, remote
 from kansha.board.boardconfig import WeightsSequenceEditor
 
 from .boardsmanager import BoardsManager
-from .comp import (Board, BoardDescription, BoardMember,
-                   Icon)
+from .comp import Board, BoardDescription, Icon
 from .comp import (BOARD_PRIVATE, BOARD_PUBLIC,
                    COMMENTS_OFF, COMMENTS_PUBLIC, COMMENTS_MEMBERS,
                    VOTES_OFF, VOTES_PUBLIC, VOTES_MEMBERS,
@@ -202,7 +201,7 @@ def render_Board_members(self, h, comp, *args):
         h << h.div(self.see_all_members_compact, class_='more compact')
         with h.span(class_='wide'):
             for m in self.all_members[:self.MAX_SHOWN_MEMBERS]:
-                h << m.on_answer(self.handle_event, comp).render(h, 'overlay')
+                h << m.on_answer(self.handle_event, comp).render(h, 'board_overlay')
     return h.root
 
 
@@ -593,30 +592,6 @@ def render_BoardProfile(self, h, comp, *args):
                     active = 'active btn-primary' if self.notifications_allowed == notifications.NOTIFY_ALL else ''
                     h << h.button(_('All'), class_='btn %s' % active).action(self.allow_notifications, notifications.NOTIFY_ALL)
     return h.root
-
-
-@presentation.render_for(BoardMember)
-def render_BoardMember(self, h, comp, *args):
-    application_url = h.request.application_url
-    if security.has_permissions('manage', self.board):
-        return self.user.on_answer(
-            lambda action: self.dispatch(action, application_url)
-        ).render(h, model=self.role)
-    else:
-        return h.div(self.user.render(h), class_='member')
-
-
-@presentation.render_for(BoardMember, model="overlay")
-def render_BoardMember_overlay(self, h, comp, *args):
-    application_url = h.request.application_url
-    if security.has_permissions('manage', self.board):
-        return self.user.on_answer(
-            lambda action: self.dispatch(action, application_url)
-        ).render(h, model='overlay-%s' % self.role)
-    else:
-        member = self.user.render(h, "avatar")
-        member.attrib.update({'class': 'avatar unselectable'})
-        return member
 
 
 @presentation.render_for(BoardBackground, model='menu')

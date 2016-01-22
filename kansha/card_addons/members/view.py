@@ -8,9 +8,9 @@
 #--
 
 from nagare.i18n import _
-from nagare import presentation, security
+from nagare import ajax, presentation, security
 
-from .comp import CardMembers
+from .comp import CardMembers, Member
 
 
 @presentation.render_for(CardMembers, 'action')
@@ -24,9 +24,13 @@ def render_card_members(self, h, comp, *args):
     with h.div(class_='members'):
         h << h.script('''YAHOO.kansha.app.hideOverlay();''')
         for m in self.members[:self.MAX_SHOWN_MEMBERS]:
-            h << m.on_answer(self.remove_member).render(h, model="overlay-remove")
+            h << m.on_answer(self.remove_member).render(h, model='overlay-remove')
         if len(self.members) > self.MAX_SHOWN_MEMBERS:
             h << h.div(self.see_all_members, class_='more')
+        if self.overlay_add_members() is None:
+            from kansha.toolbox import overlay
+            self.overlay_add_members.becomes(overlay.Overlay(lambda r: (r.i(class_='ico-btn icon-user'), r.span(_(u'+'), class_='count')),
+                                             lambda r: comp.render(r, 'add_member_overlay'), dynamic=True, cls='card-overlay'))
         h << h.div(self.overlay_add_members, class_='add')
     return h.root
 
@@ -68,8 +72,8 @@ def render_members_members_list_overlay(self, h, comp, *args):
     return h.root
 
 
-def add_members(member_ext, members):
-    member_ext.add_members(members)
+def add_member(member_ext, member):
+    member_ext.add_member(member)
     return "YAHOO.kansha.reload_cards['%s']();YAHOO.kansha.app.hideOverlay();" % member_ext.card.id
 
 
@@ -82,9 +86,10 @@ def render_members_add_member_overlay(self, h, comp, *args):
             h << h.h3(_('Suggestions'))
             with h.ul:
                 for favorite in self.favorites:
-                    h << h.li(favorite.on_answer(lambda members: add_members(self, members)))
+                    with h.li:
+                        h << favorite.on_answer(lambda member: add_member(self, member))
     with h.div(class_='members search'):
-        h << self.new_member.on_answer(lambda members: add_members(self, members))
+        h << self.new_member.on_answer(self.add_members_by_email)
     return h.root
 
 
@@ -95,3 +100,37 @@ def render_members_many_user(self, h, comp, *args):
         h.i(class_='ico-btn icon-user'),
         h.span(number, class_='count'),
         title=_('%s more...') % number)
+
+
+@presentation.render_for(Member, 'board')
+def render_member_board(self, h, comp, *args):
+    application_url = h.request.application_url
+    if security.has_permissions('manage', self.board):
+        return self.user.on_answer(
+            lambda action: self.dispatch(action, application_url)
+        ).render(h, model=self.role)
+    else:
+        return h.div(self.user.render(h), class_='member')
+
+
+@presentation.render_for(Member, 'board_overlay')
+def render_member_board_overlay(self, h, comp, *args):
+    application_url = h.request.application_url
+    if security.has_permissions('manage', self.board):
+        return self.user.on_answer(
+            lambda action: self.dispatch(action, application_url)
+        ).render(h, model='overlay-%s' % self.role)
+    else:
+        member = self.user.render(h, 'avatar')
+        member.attrib.update({'class': 'avatar unselectable'})
+        return member
+
+
+@presentation.render_for(Member, 'favorite')
+def render_member_friend(self, h, comp, *args):
+    return self.user.on_answer(lambda email: comp.answer(self)).render(h, 'friend')
+
+
+@presentation.render_for(Member, 'overlay-remove')
+def render_member_overlay_remove(self, h, comp, model):
+    return self.user.on_answer(lambda ret: comp.answer(self)).render(h, 'overlay-remove')

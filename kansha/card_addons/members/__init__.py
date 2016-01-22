@@ -9,5 +9,5 @@
 
 
 from . import view
-from .comp import CardMembers
+from .comp import CardMembers, Member
 from .models import DataMember

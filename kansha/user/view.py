@@ -79,9 +79,7 @@ def render_User_remove(self, h, comp, *args):
     with h.div(class_='member'):
         h << comp.render(h, None)
         with h.span(class_="actions"):
-            with h.form:
-                h << h.input(value=_("Remove"), type="submit",
-                             class_="btn btn-primary delete").action(ajax.Update(action=lambda: comp.answer(self.username)))
+            h << h.a(_(u'Remove'), class_='btn btn-primary delete').action(ajax.Update(action=lambda: comp.answer(self.username)))
     return h.root
 
 

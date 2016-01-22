@@ -63,7 +63,9 @@ class DataMember(Entity):
 
     @classmethod
     def remove_board_user(cls, board, user):
-        cls.query.filter_by(board=board, user=user).delete()
+        member = cls.get_by(board=board, user=user)
+        if member is not None:
+            member.delete()
 
     @classmethod
     def change_board_user_role(cls, board, user, role=u''):
@@ -80,24 +82,15 @@ class DataMember(Entity):
 
     # Card members
     @classmethod
-    def get_card_member(cls, card, user):
-        q = cls.query
-        q = q.filter(cls.cards.contains(card))
-        q = q.filter_by(user=user)
-        return q.first()
-
-    @classmethod
     def get_card_members(cls, card):
         q = cls.query
         q = q.filter(cls.cards.contains(card))
         return q.all()
 
-    @classmethod
-    def add_card_member(cls, card, user):
-        member = cls.get_card_member(card, user)
-        member.cards.append(card)
+    def add_card(self, card):
+        if not card in self.cards:
+            self.cards.append(card)
 
-    @classmethod
-    def remove_card_member(cls, card, user):
-        member = cls.get_card_member(card, user)
-        member.cards.remove(card)
+    def remove_card(self, card):
+        if card in self.cards:
+            self.cards.remove(card)
